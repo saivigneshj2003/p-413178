@@ -1,17 +1,35 @@
 
 import React from "react";
 import { JobList } from "@/components/features/JobList";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft } from "lucide-react";
 
 const JobListings = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isProcessing = location.state?.isProcessing || false;
   const audioBlob = location.state?.audioBlob;
+
+  const handleBack = () => {
+    navigate('/');
+  };
 
   return (
     <div className="flex flex-col min-h-screen w-full bg-white">
       <header className="flex justify-between items-center px-6 py-4 bg-white shadow-sm">
-        <div className="text-indigo-600 text-2xl font-semibold">JobVoice</div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleBack} 
+            className="mr-2"
+            aria-label="Back to main page"
+          >
+            <ChevronLeft className="h-5 w-5 text-gray-700" />
+          </Button>
+          <div className="text-indigo-600 text-2xl font-semibold">JobVoice</div>
+        </div>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
