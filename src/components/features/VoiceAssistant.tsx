@@ -8,11 +8,13 @@ export const VoiceAssistant = () => {
   const navigate = useNavigate();
 
   const handleRecordingComplete = (audioBlob: Blob) => {
+    // Navigate to jobs page with the audio blob and processing flag
     navigate('/jobs', { 
       state: { 
         audioBlob: audioBlob,
         isProcessing: true
-      }
+      },
+      replace: true // Replace the current route to prevent back navigation
     });
   };
 
