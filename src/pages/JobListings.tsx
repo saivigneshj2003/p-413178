@@ -59,7 +59,7 @@ const JobListings = () => {
                 </svg>
                 <h2 className="text-lg font-medium text-gray-900">System Response:</h2>
               </div>
-              <p className="text-gray-700 mt-2 ml-8">"Here are the positions that match your profile"</p>
+              <p className="text-gray-700 mt-2 ml-8">"Here is your answer"</p>
             </div>
           </div>
         )}
