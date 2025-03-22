@@ -1,10 +1,10 @@
+
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 export const VoiceAssistant = () => {
   const navigate = useNavigate();
   const [isRecording, setIsRecording] = useState(false);
-  const [processingAudio, setProcessingAudio] = useState(false);
   const [message, setMessage] = useState("Voice Assistant Ready");
   const [subMessage, setSubMessage] = useState("Say \"Hey Assistant\" or tap the microphone to start");
   
@@ -38,7 +38,6 @@ export const VoiceAssistant = () => {
         }
       };
 
-      mediaRecorder.onstop = handleRecordingStop;
       mediaRecorder.start(100); // Collect data in 100ms chunks
     } catch (error) {
       console.error("Error starting recording:", error);
@@ -51,145 +50,25 @@ export const VoiceAssistant = () => {
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      setIsRecording(false);
-      setProcessingAudio(true);
-      setMessage("Processing...");
-      setSubMessage("Please wait while we process your audio");
-    }
-  };
-
-  const handleRecordingStop = async () => {
-    try {
-      // Create a blob with the audio data
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
       
-      // Convert to WAV format using Web Audio API
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const fileReader = new FileReader();
-      
-      fileReader.onload = async (event) => {
-        try {
-          if (!event.target?.result) {
-            throw new Error("Failed to read audio file");
-          }
-          
-          const arrayBuffer = event.target.result as ArrayBuffer;
-          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          
-          // Create WAV file
-          const wavBlob = await audioBufferToWav(audioBuffer);
-          const audioFile = new File([wavBlob], "audiofile.wav", { type: 'audio/wav' });
-          
-          // Create FormData to send the file
-          const formData = new FormData();
-          formData.append('audio', audioFile);
-          
-          // Send the audio file to the server using the proxied endpoint
-          const response = await fetch('/api/process-audio', {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            setMessage("Processing Complete");
-            
-            if (result.result && result.result.speech_text) {
-              setSubMessage(`You said: "${result.result.speech_text}"\n\nResponse: ${result.result.agent_response || "No response from agent"}`);
-              
-              // Navigate to jobs page after a short delay
-              setTimeout(() => {
-                navigate('/jobs');
-              }, 1500);
-            } else {
-              setSubMessage(result.result?.error || result.message || "Your request has been processed");
-            }
-          } else {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to process audio');
-          }
-        } catch (error) {
-          console.error("Error processing audio data:", error);
-          setMessage("Processing Failed");
-          setSubMessage((error as Error).message || "There was an error processing your request");
-        } finally {
-          setProcessingAudio(false);
-        }
-      };
-      
-      fileReader.onerror = () => {
-        setMessage("Processing Failed");
-        setSubMessage("Failed to read the audio file");
-        setProcessingAudio(false);
-      };
-      
-      fileReader.readAsArrayBuffer(audioBlob);
-    } catch (error) {
-      console.error("Error processing audio:", error);
-      setMessage("Processing Failed");
-      setSubMessage((error as Error).message || "There was an error processing your request");
-      setProcessingAudio(false);
-    }
-  };
-
-  // Function to convert AudioBuffer to WAV format
-  const audioBufferToWav = (buffer: AudioBuffer): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const numOfChan = buffer.numberOfChannels;
-      const length = buffer.length * numOfChan * 2;
-      const sampleRate = buffer.sampleRate;
-      
-      // Create the buffer for the WAV file
-      const buffer16Bit = new ArrayBuffer(44 + length);
-      const view = new DataView(buffer16Bit);
-      
-      // Write WAV header
-      // "RIFF" chunk descriptor
-      writeString(view, 0, 'RIFF');
-      view.setUint32(4, 36 + length, true);
-      writeString(view, 8, 'WAVE');
-      
-      // "fmt " sub-chunk
-      writeString(view, 12, 'fmt ');
-      view.setUint32(16, 16, true); // fmt chunk size
-      view.setUint16(20, 1, true); // audio format (1 for PCM)
-      view.setUint16(22, numOfChan, true); // number of channels
-      view.setUint32(24, sampleRate, true); // sample rate
-      view.setUint32(28, sampleRate * numOfChan * 2, true); // byte rate
-      view.setUint16(32, numOfChan * 2, true); // block align
-      view.setUint16(34, 16, true); // bits per sample
-      
-      // "data" sub-chunk
-      writeString(view, 36, 'data');
-      view.setUint32(40, length, true); // data chunk size
-      
-      // Write the PCM samples
-      const offset = 44;
-      let pos = 44;
-      
-      for (let i = 0; i < buffer.numberOfChannels; i++) {
-        const channel = buffer.getChannelData(i);
+      // Create a handler for the stop event
+      mediaRecorderRef.current.onstop = () => {
+        // Stop all tracks
+        mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
         
-        for (let j = 0; j < channel.length; j++) {
-          // Convert float audio data to 16-bit PCM
-          const sample = Math.max(-1, Math.min(1, channel[j]));
-          const value = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-          view.setInt16(pos, value, true);
-          pos += 2;
-        }
-      }
+        // Create a blob with the audio data
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        // Navigate to jobs page with the audio blob and processing flag
+        navigate('/jobs', { 
+          state: { 
+            audioBlob: audioBlob,
+            isProcessing: true
+          }
+        });
+      };
       
-      // Create Blob
-      const wavBlob = new Blob([buffer16Bit], { type: 'audio/wav' });
-      resolve(wavBlob);
-    });
-  };
-
-  // Helper function to write strings to DataView
-  const writeString = (view: DataView, offset: number, string: string) => {
-    for (let i = 0; i < string.length; i++) {
-      view.setUint8(offset + i, string.charCodeAt(i));
+      setIsRecording(false);
     }
   };
 
@@ -208,7 +87,7 @@ export const VoiceAssistant = () => {
           <div className="flex flex-col items-center gap-6">
             <div 
               className={`flex justify-center items-center w-20 h-20 ${isRecording ? 'bg-red-500' : 'bg-white'} shadow-[0px_4px_6px_0px_rgba(0,0,0,0.10),0px_10px_15px_0px_rgba(0,0,0,0.10)] rounded-full cursor-pointer transition-colors`}
-              onClick={!processingAudio ? handleVoiceCommand : undefined}
+              onClick={handleVoiceCommand}
             >
               <svg
                 width="24"
@@ -230,9 +109,8 @@ export const VoiceAssistant = () => {
               {subMessage}
             </div>
             <button 
-              className={`bg-white text-indigo-600 text-base px-6 py-3.5 rounded-lg ${processingAudio ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'} transition-colors`}
-              onClick={!processingAudio ? handleVoiceCommand : undefined}
-              disabled={processingAudio}
+              className={`bg-white text-indigo-600 text-base px-6 py-3.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors`}
+              onClick={handleVoiceCommand}
             >
               {isRecording ? "Stop Recording" : "Start Voice Command"}
             </button>
