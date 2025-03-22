@@ -1,7 +1,6 @@
 
 import React from "react";
 import { JobList } from "@/components/features/JobList";
-import { VoiceProcessing } from "@/components/features/VoiceProcessing";
 import { useLocation } from "react-router-dom";
 
 const JobListings = () => {
