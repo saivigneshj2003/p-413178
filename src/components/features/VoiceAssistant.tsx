@@ -1,6 +1,8 @@
 import React, { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const VoiceAssistant = () => {
+  const navigate = useNavigate();
   const [isRecording, setIsRecording] = useState(false);
   const [processingAudio, setProcessingAudio] = useState(false);
   const [message, setMessage] = useState("Voice Assistant Ready");
@@ -95,6 +97,11 @@ export const VoiceAssistant = () => {
             
             if (result.result && result.result.speech_text) {
               setSubMessage(`You said: "${result.result.speech_text}"\n\nResponse: ${result.result.agent_response || "No response from agent"}`);
+              
+              // Navigate to jobs page after a short delay
+              setTimeout(() => {
+                navigate('/jobs');
+              }, 1500);
             } else {
               setSubMessage(result.result?.error || result.message || "Your request has been processed");
             }
