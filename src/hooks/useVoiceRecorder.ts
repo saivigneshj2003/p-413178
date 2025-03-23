@@ -180,21 +180,7 @@ export const useVoiceRecorder = ({
           // Convert to WAV if not already in WAV format
           const audioBlob = initialBlob.type === 'audio/wav' ? initialBlob : await convertToWav(initialBlob);
           
-          // Create FormData and append the audio blob
-          const formData = new FormData();
-          formData.append('audio', audioBlob, 'recording.wav');
-          
-          // Upload the audio file
-          const response = await fetch('http://localhost:3002/api/process-audio', {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (!response.ok) {
-            throw new Error('Failed to upload audio file');
-          }
-          
-          // Only navigate after successful upload
+          // Call the completion handler with the audio blob
           onRecordingComplete(audioBlob);
         } catch (error) {
           console.error('Error processing recording:', error);

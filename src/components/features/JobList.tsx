@@ -10,10 +10,44 @@ interface JobCardProps {
   location: string;
   salary: string;
   skills: string[];
-  remote?: boolean;
 }
 
-const JobCard = ({ title, company, location, salary, skills, remote }: JobCardProps) => {
+interface ServerResponse {
+  message: string;
+  result: {
+    status: string;
+    steps: Array<{
+      step: string;
+      status: string;
+      text?: string;
+      message?: string;
+      response?: {
+        status: string;
+        job_positions: Array<{
+          title: string;
+          company: string;
+          location: string;
+          type: string;
+          skills: string[];
+        }>;
+      };
+    }>;
+    error: string | null;
+    speech_text: string;
+    agent_response: {
+      status: string;
+      job_positions: Array<{
+        title: string;
+        company: string;
+        location: string;
+        type: string;
+        skills: string[];
+      }>;
+    };
+  };
+}
+
+const JobCard = ({ title, company, location, salary, skills}: JobCardProps) => {
   return (
     <div className="bg-white rounded-lg border p-6 mb-4">
       <div className="flex justify-between items-start mb-4">
@@ -51,7 +85,7 @@ const JobCard = ({ title, company, location, salary, skills, remote }: JobCardPr
         </button>
       </div>
 
-      <div className="flex items-center gap-6 mb-4">
+      <div className="flex items-center gap-4 mb-4">
         <div className="flex items-center gap-1 text-sm text-gray-600">
           <MapPin size={16} />
           <span>{location}</span>
@@ -63,31 +97,15 @@ const JobCard = ({ title, company, location, salary, skills, remote }: JobCardPr
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        {skills.map((skill, index) => (
-          <span 
-            key={index} 
-            className={`px-3 py-1 text-xs rounded-full ${
-              title === "Senior Frontend Developer" 
-                ? "bg-blue-50 text-blue-700" 
-                : title === "Data Scientist"
-                ? "bg-green-50 text-green-700"
-                : "bg-amber-50 text-amber-700"
-            }`}
-          >
+        {skills.map((skill, idx) => (
+          <span key={idx} className="px-3 py-1 text-xs rounded-full bg-blue-50 text-blue-700">
             {skill}
           </span>
         ))}
       </div>
-
+      
       <div className="flex justify-between items-center">
         <Button className="bg-blue-600 hover:bg-blue-700">Apply Now</Button>
-        <button className="text-gray-400 hover:text-gray-700">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 6C10.5523 6 11 5.55228 11 5C11 4.44772 10.5523 4 10 4C9.44772 4 9 4.44772 9 5C9 5.55228 9.44772 6 10 6Z" fill="currentColor"/>
-            <path d="M10 11C10.5523 11 11 10.5523 11 10C11 9.44772 10.5523 9 10 9C9.44772 9 9 9.44772 9 10C9 10.5523 9.44772 11 10 11Z" fill="currentColor"/>
-            <path d="M10 16C10.5523 16 11 15.5523 11 15C11 14.4477 10.5523 14 10 14C9.44772 14 9 14.4477 9 15C9 15.5523 9.44772 16 10 16Z" fill="currentColor"/>
-          </svg>
-        </button>
       </div>
     </div>
   );
@@ -95,31 +113,56 @@ const JobCard = ({ title, company, location, salary, skills, remote }: JobCardPr
 
 export const JobList = () => {
   const location = useLocation();
-  const [response, setResponse] = useState(null);
+  const [response, setResponse] = useState<ServerResponse['result'] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasProcessed, setHasProcessed] = useState(false);
+  const [showSampleJobs, setShowSampleJobs] = useState(true);
 
   useEffect(() => {
     const processAudio = async () => {
       const state = location.state as { audioBlob?: Blob; isProcessing?: boolean };
-      if (state?.audioBlob && state.isProcessing) {
+      if (state?.audioBlob && state.isProcessing && !hasProcessed) {
         setIsLoading(true);
+        setShowSampleJobs(false);
         try {
           const formData = new FormData();
           formData.append('audio', state.audioBlob, 'recording.wav');
 
-          const response = await fetch('http://localhost:3002/api/process-audio', {
+          const serverResponse = await fetch('http://localhost:3002/api/process-audio', {
             method: 'POST',
             body: formData
           });
 
-          const data = await response.json();
-          // Extract the result from the server response
-          setResponse(data.result);
+          if (!serverResponse.ok) {
+            throw new Error('Server responded with an error');
+          }
+
+          const data: ServerResponse = await serverResponse.json();
+          console.log('Server response:', JSON.stringify(data, null, 2));
+
+          // Handle the wrapped response structure
+          if (data?.message === 'Audio processed successfully' && data?.result) {
+            setResponse(data.result);
+            setShowSampleJobs(false);
+          } else {
+            console.error('Invalid response format:', data);
+            setResponse(null);
+            setShowSampleJobs(true);
+          }
+          setHasProcessed(true);
         } catch (error) {
+          console.error('Error processing audio:', error);
           setResponse({
             status: 'error',
-            error: 'Failed to process audio'
+            steps: [],
+            error: 'Failed to process audio: ' + (error instanceof Error ? error.message : String(error)),
+            speech_text: '',
+            agent_response: {
+              status: 'error',
+              job_positions: []
+            }
           });
+          setShowSampleJobs(true);
         } finally {
           setIsLoading(false);
         }
@@ -127,7 +170,7 @@ export const JobList = () => {
     };
 
     processAudio();
-  }, [location]);
+  }, [location.state, hasProcessed]);
 
   const jobs = [
     {
@@ -161,14 +204,21 @@ export const JobList = () => {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <span className="ml-3 text-gray-600">Processing audio...</span>
         </div>
-      ) : (
+      ) : response && response.status === 'success' ? (
         <ResponseSection response={response} />
+      ) : null}
+      
+      {showSampleJobs && !isLoading && (
+        <div>
+          <h2 className="text-lg font-medium text-gray-900 mb-6">Sample Job Listings</h2>
+          <div className="grid grid-cols-1 gap-6">
+            {jobs.map((job, index) => (
+              <JobCard key={index} {...job} />
+            ))}
+          </div>
+        </div>
       )}
-      <div className="grid grid-cols-1 gap-6">
-        {jobs.map((job, index) => (
-          <JobCard key={index} {...job} />
-        ))}
-      </div>
+      
       <footer className="mt-8 text-center text-sm text-gray-500">
         2025 JobVoice. All rights reserved.
         <div className="flex justify-center mt-2 gap-4">

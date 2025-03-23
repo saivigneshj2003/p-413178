@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
@@ -8,11 +7,14 @@ export const VoiceAssistant = () => {
   const navigate = useNavigate();
 
   const handleRecordingComplete = (audioBlob: Blob) => {
+    console.log("Recording complete, navigating with blob size:", audioBlob.size);
+    
     // Navigate to jobs page with the audio blob and processing flag
     navigate('/jobs', { 
       state: { 
-        audioBlob: audioBlob,
-        isProcessing: true
+        audioBlob,
+        isProcessing: true,
+        timestamp: Date.now() // Add timestamp to force state change
       },
       replace: true // Replace the current route to prevent back navigation
     });
