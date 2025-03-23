@@ -135,7 +135,7 @@ export const JobList = () => {
           const formData = new FormData();
           formData.append('audio', state.audioBlob, 'recording.wav');
 
-          const serverResponse = await fetch('https://103.212.121.101:3004/api/process-audio', {
+          const serverResponse = await fetch('http://103.212.121.101:3004/api/process-audio', {
             method: 'POST',
             body: formData
           });
