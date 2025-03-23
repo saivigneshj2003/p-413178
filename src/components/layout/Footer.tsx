@@ -6,7 +6,7 @@ export const Footer = () => {
       <div className="w-full max-w-[1248px] flex flex-col gap-8">
         <div className="grid grid-cols-4 gap-8 max-md:grid-cols-2 max-sm:grid-cols-1">
           <div className="flex flex-col gap-6">
-            <span className="text-white text-lg">HR Portal</span>
+            <span className="text-white text-lg">Indegene HR Portal</span>
             <p className="text-gray-400 text-sm">
               Empowering your career journey through voice-enabled guidance
             </p>
@@ -70,7 +70,7 @@ export const Footer = () => {
           </div>
         </div>
         <div className="text-gray-400 text-base border-t border-gray-700 pt-8">
-          © 2025 HR Portal. All rights reserved.
+          &copy; {new Date().getFullYear()} Indegene HR Portal. All rights reserved.
         </div>
       </div>
     </footer>

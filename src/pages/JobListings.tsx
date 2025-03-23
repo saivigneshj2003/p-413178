@@ -1,4 +1,3 @@
-
 import React from "react";
 import { JobList } from "@/components/features/JobList";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -28,7 +27,7 @@ const JobListings = () => {
           >
             <ChevronLeft className="h-5 w-5 text-gray-700" />
           </Button>
-          <div className="text-indigo-600 text-2xl font-semibold">JobVoice</div>
+          <div className="text-indigo-600 text-2xl font-semibold">Indegene</div>
         </div>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -67,7 +66,7 @@ const JobListings = () => {
       </main>
       
       <footer className="p-4 text-center text-sm text-gray-500 border-t">
-        <div>© 2025 JobVoice. All rights reserved.</div>
+        <div>&copy; {new Date().getFullYear()} Indegene. All rights reserved.</div>
         <div className="flex justify-center mt-2 gap-4">
           <button className="text-gray-500 hover:text-gray-700">Support</button>
           <button className="text-gray-500 hover:text-gray-700">Settings</button>

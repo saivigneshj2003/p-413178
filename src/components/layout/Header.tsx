@@ -5,7 +5,7 @@ export const Header = () => {
     <header className="flex w-full h-16 justify-center items-center bg-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] px-20 max-md:px-10 max-sm:px-5">
       <div className="flex w-full h-16 justify-between items-center px-4">
         <div className="flex items-center gap-8 max-md:gap-5">
-          <div className="text-indigo-600 text-2xl">HR Portal</div>
+          <div className="text-indigo-600 text-2xl">Indegene</div>
           <nav className="flex items-center gap-[26.734px] max-md:hidden">
             <span className="text-gray-700 text-base">Dashboard</span>
             <span className="text-gray-700 text-base">Available Roles</span>
