@@ -223,6 +223,25 @@ def format_job_positions(positions):
             "skills": job_data.get("skills", default_skills)
         }
         
+        # Clean up skills - filter out any metadata-like entries
+        if "skills" in formatted_position:
+            cleaned_skills = []
+            for skill in formatted_position["skills"]:
+                # Skip metadata-like entries
+                if isinstance(skill, str) and any(x in skill for x in ['location":', 'type":', 'salary":', 'skills":']):
+                    continue
+                # Clean up any remaining quotes or backslashes
+                if isinstance(skill, str):
+                    skill = skill.replace('\\"', '').replace('"', '').strip()
+                    if skill:
+                        cleaned_skills.append(skill)
+            
+            # If we filtered out all skills, use defaults
+            if cleaned_skills:
+                formatted_position["skills"] = cleaned_skills
+            else:
+                formatted_position["skills"] = default_skills
+        
         # Add salary only if present
         if "salary" in job_data:
             formatted_position["salary"] = job_data["salary"]

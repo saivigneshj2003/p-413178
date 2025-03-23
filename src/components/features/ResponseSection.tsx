@@ -13,11 +13,9 @@ interface JobPosition {
 
 interface AgentResponse {
   status: string;
+  response?: string | any;
   job_positions?: JobPosition[];
-  response?: {
-    job_positions?: JobPosition[];
-    message?: string;
-  };
+  message?: string;
 }
 
 interface ServerResponse {
@@ -119,20 +117,101 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
 
   // Helper function to determine if we have job positions to display
   const hasJobPositions = () => {
-    // Check both possible locations for job positions
-    const positions = response.agent_response?.job_positions || 
-                     response.agent_response?.response?.job_positions;
-    return positions && Array.isArray(positions) && positions.length > 0;
+    // Check direct job_positions property
+    if (response.agent_response?.job_positions && 
+        Array.isArray(response.agent_response.job_positions) && 
+        response.agent_response.job_positions.length > 0) {
+      return true;
+    }
+    
+    // Check if response is a string that contains job positions in JSON format
+    if (typeof response.agent_response?.response === 'string') {
+      const responseStr = response.agent_response.response.trim();
+      // Check if the response contains a JSON array with job positions
+      if (responseStr.includes('"title"') && 
+          responseStr.includes('"location"') && 
+          responseStr.includes('"skills"')) {
+        try {
+          // Try to extract the JSON array from the response string
+          const jsonMatch = responseStr.match(/\[\s*\{.*\}\s*\]/s);
+          if (jsonMatch) {
+            const jsonStr = jsonMatch[0];
+            const parsedPositions = JSON.parse(jsonStr);
+            return Array.isArray(parsedPositions) && parsedPositions.length > 0;
+          }
+        } catch (error) {
+          console.error("Error parsing job positions from response string:", error);
+        }
+      }
+    }
+    
+    return false;
   };
 
   // Helper function to get the job positions array
   const getJobPositions = () => {
-    return response.agent_response?.job_positions || 
-           response.agent_response?.response?.job_positions || [];
+    // Check direct job_positions property
+    if (response.agent_response?.job_positions && 
+        Array.isArray(response.agent_response.job_positions)) {
+      return response.agent_response.job_positions;
+    }
+    
+    // Check if response is a string that contains job positions in JSON format
+    if (typeof response.agent_response?.response === 'string') {
+      const responseStr = response.agent_response.response.trim();
+      // Check if the response contains a JSON array with job positions
+      if (responseStr.includes('"title"') && 
+          responseStr.includes('"location"') && 
+          responseStr.includes('"skills"')) {
+        try {
+          // Try to extract the JSON array from the response string
+          const jsonMatch = responseStr.match(/\[\s*\{.*\}\s*\]/s);
+          if (jsonMatch) {
+            const jsonStr = jsonMatch[0];
+            const parsedPositions = JSON.parse(jsonStr);
+            if (Array.isArray(parsedPositions)) {
+              return parsedPositions;
+            }
+          }
+        } catch (error) {
+          console.error("Error parsing job positions from response string:", error);
+        }
+      }
+    }
+    
+    return [];
+  };
+
+  // Helper function to check if we have a text response
+  const hasTextResponse = () => {
+    // If we have job positions, we don't need to show the text response
+    if (hasJobPositions()) {
+      return false;
+    }
+    
+    return typeof response.agent_response?.response === 'string' && 
+           response.agent_response.response.trim().length > 0;
+  };
+
+  // Helper function to get the text response
+  const getTextResponse = () => {
+    // If the response contains job positions as a JSON string, extract the message part
+    if (typeof response.agent_response?.response === 'string') {
+      const responseStr = response.agent_response.response.trim();
+      if (responseStr.includes('"title"') && 
+          responseStr.includes('"location"') && 
+          responseStr.includes('"skills"')) {
+        // Extract any message that might be before or after the JSON array
+        const parts = responseStr.split(/\[\s*\{.*\}\s*\]/s);
+        return parts.filter(part => part.trim().length > 0).join('\n\n');
+      }
+    }
+    
+    return response.agent_response?.response || '';
   };
 
   // Only render if we have valid job positions or a response message
-  if (!hasJobPositions() && !response.agent_response?.response?.message && !response.agent_response?.response) {
+  if (!hasJobPositions() && !hasTextResponse() && !response.agent_response?.response?.message) {
     console.log('No job positions or response message found');
     return null;
   }
@@ -145,7 +224,9 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
             <path d="M12 16V12M12 8H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" 
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <h2 className="text-lg font-medium text-gray-900">Job Recommendations</h2>
+          <h2 className="text-lg font-medium text-gray-900">
+            {hasJobPositions() ? "Job Recommendations" : "Agent Response"}
+          </h2>
         </div>
       </div>
       
@@ -154,6 +235,13 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-2">Your Request</h3>
             <p className="text-gray-900">{response.speech_text}</p>
+          </div>
+        )}
+        
+        {/* Display text response if available */}
+        {hasTextResponse() && (
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+            <p className="text-gray-800 whitespace-pre-line">{getTextResponse()}</p>
           </div>
         )}
         
