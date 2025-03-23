@@ -12,8 +12,11 @@ interface JobPosition {
 
 interface AgentResponse {
   status: string;
-  job_positions: JobPosition[];
-  response?: string;
+  job_positions?: JobPosition[];
+  response?: {
+    job_positions?: JobPosition[];
+    message?: string;
+  };
 }
 
 interface ServerResponse {
@@ -74,13 +77,20 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
 
   // Helper function to determine if we have job positions to display
   const hasJobPositions = () => {
-    return response.agent_response?.job_positions && 
-           Array.isArray(response.agent_response.job_positions) && 
-           response.agent_response.job_positions.length > 0;
+    // Check both possible locations for job positions
+    const positions = response.agent_response?.job_positions || 
+                     response.agent_response?.response?.job_positions;
+    return positions && Array.isArray(positions) && positions.length > 0;
+  };
+
+  // Helper function to get the job positions array
+  const getJobPositions = () => {
+    return response.agent_response?.job_positions || 
+           response.agent_response?.response?.job_positions || [];
   };
 
   // Only render if we have valid job positions or a response message
-  if (!hasJobPositions() && !response.agent_response.response) {
+  if (!hasJobPositions() && !response.agent_response?.response?.message && !response.agent_response?.response) {
     console.log('No job positions or response message found');
     return null;
   }
@@ -107,7 +117,7 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
         
         {hasJobPositions() && (
           <div className="grid grid-cols-1 gap-6">
-            {response.agent_response.job_positions
+            {getJobPositions()
               .filter(job => !job.title.includes('Based on your resume')) // Filter out the introduction message
               .map((job, index) => (
               <div key={index} className="bg-white rounded-lg border p-6">
@@ -151,12 +161,12 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
           </div>
         )}
         
-        {response.agent_response.response && !hasJobPositions() && (
+        {response.agent_response?.response?.message && !hasJobPositions() && (
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-3">Response</h3>
             <div className="text-gray-900">
               <ul className="list-none pl-0">
-                {formatResponse(response.agent_response.response)}
+                {formatResponse(response.agent_response.response.message)}
               </ul>
             </div>
           </div>

@@ -117,6 +117,8 @@ export const JobList = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasProcessed, setHasProcessed] = useState(false);
   const [showSampleJobs, setShowSampleJobs] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState<string>("Agent is thinking");
+  const [loadingStep, setLoadingStep] = useState<number>(0);
 
   useEffect(() => {
     const processAudio = async () => {
@@ -124,6 +126,11 @@ export const JobList = () => {
       if (state?.audioBlob && state.isProcessing && !hasProcessed) {
         setIsLoading(true);
         setShowSampleJobs(false);
+        
+        // Start loading message sequence
+        setLoadingMessage("Agent is thinking");
+        setLoadingStep(0);
+
         try {
           const formData = new FormData();
           formData.append('audio', state.audioBlob, 'recording.wav');
@@ -144,10 +151,12 @@ export const JobList = () => {
           if (data?.message === 'Audio processed successfully' && data?.result) {
             setResponse(data.result);
             setShowSampleJobs(false);
+            setIsLoading(false); // Reset loading state
           } else {
             console.error('Invalid response format:', data);
             setResponse(null);
             setShowSampleJobs(true);
+            setIsLoading(false); // Reset loading state
           }
           setHasProcessed(true);
         } catch (error) {
@@ -163,14 +172,39 @@ export const JobList = () => {
             }
           });
           setShowSampleJobs(true);
-        } finally {
-          setIsLoading(false);
+          setIsLoading(false); // Reset loading state
         }
       }
     };
 
     processAudio();
   }, [location.state, hasProcessed]);
+
+  // Update loading message sequence
+  useEffect(() => {
+    if (isLoading) {
+      const messages = [
+        "Agent is thinking",
+        "Agent is thinking even more",
+        "Agent is thinking even even more",
+        "It is trying to find best possible match",
+        "It getting closer",
+        "It found the best possible match"
+      ];
+
+      const interval = setInterval(() => {
+        setLoadingStep((prevStep) => {
+          if (prevStep >= messages.length - 1) {
+            return prevStep;
+          }
+          setLoadingMessage(messages[prevStep + 1]);
+          return prevStep + 1;
+        });
+      }, 4000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isLoading]);
 
   const jobs = [
     {
@@ -202,7 +236,7 @@ export const JobList = () => {
       {isLoading ? (
         <div className="flex items-center justify-center h-16 mb-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Processing audio...</span>
+          <span className="ml-3 text-gray-600">{loadingMessage}</span>
         </div>
       ) : response && response.status === 'success' ? (
         <ResponseSection response={response} />
