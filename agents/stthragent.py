@@ -7,6 +7,7 @@ from azure.identity.aio import DefaultAzureCredential
 from semantic_kernel.agents.azure_ai import AzureAIAgent, AzureAIAgentSettings
 from dotenv import load_dotenv
 from typing import List, Dict
+import re
 
 load_dotenv()
 
@@ -94,38 +95,162 @@ def recognize_from_microphone_audio():
         return None
 
 
-def format_job_positions(positions: List[str]) -> List[Dict]:
+def format_job_positions(positions):
     """
-    Formats job positions into card-like structures.
+    Formats a list of job positions into a structured format.
+    Consolidates fragmented job data into complete job listings.
     """
-    formatted_positions = []
+    # If positions is a string, try to parse it as JSON
+    if isinstance(positions, str):
+        try:
+            positions = json.loads(positions)
+        except json.JSONDecodeError:
+            # If it's not valid JSON, treat it as a single position
+            positions = [positions]
+    
+    # Define default values
+    default_company = "Indegene"
+    default_location = "Remote (Global)"
+    default_type = "Full-time"
+    default_skills = ["JavaScript", "React", "Web Development"]
+    
+    # Group related job entries
+    job_groups = []
+    current_group = []
+    
     for position in positions:
-        # Remove any list markers and clean up the position string
-        position = position.strip().replace('- ', '').replace('* ', '')
-        
-        # Determine skills based on position keywords
-        skills = []
-        if any(keyword in position.lower() for keyword in ['azure', 'cloud']):
-            skills.extend(['Azure', 'Cloud Architecture', 'Infrastructure'])
-        if 'devops' in position.lower():
-            skills.extend(['DevOps', 'CI/CD', 'Automation'])
-        if 'architect' in position.lower():
-            skills.extend(['Solution Design', 'Enterprise Architecture'])
-        if 'presales' in position.lower():
-            skills.extend(['Technical Sales', 'Client Communication'])
+        # Clean up the position string if it's a string
+        if isinstance(position, str):
+            position = position.strip()
             
-        # Remove duplicates and ensure at least some default skills
-        skills = list(set(skills)) or ['Technical Skills', 'Problem Solving']
+            # Check if this is the start of a new job listing
+            if '{"title":' in position or '"title":' in position or position.startswith('{"'):
+                # If we have a current group, save it and start a new one
+                if current_group:
+                    job_groups.append(current_group)
+                current_group = [position]
+            else:
+                # Add to the current group
+                current_group.append(position)
+        else:
+            # If it's already a dictionary, treat it as a complete job
+            job_groups.append([position])
+    
+    # Add the last group if it exists
+    if current_group:
+        job_groups.append(current_group)
+    
+    formatted_positions = []
+    
+    # Process each group of related job entries
+    for group in job_groups:
+        job_data = {}
         
-        job_card = {
-            "title": position,
-            "company": "Indegene",
-            "location": "Remote (Global)",
-            "type": "Full-time",
-            "skills": skills
+        # Extract all key-value pairs from the group
+        for item in group:
+            if isinstance(item, dict):
+                # If it's already a dictionary, use it directly
+                job_data.update(item)
+                continue
+                
+            # Extract title
+            title_match = re.search(r'"title"\s*:\s*"([^"]+)"', item)
+            if title_match:
+                job_data["title"] = title_match.group(1).strip()
+                
+            # Extract location
+            location_match = re.search(r'"location"\s*:\s*"([^"]+)"', item)
+            if location_match:
+                job_data["location"] = location_match.group(1).strip()
+                
+            # Extract type
+            type_match = re.search(r'"type"\s*:\s*"([^"]+)"', item)
+            if type_match:
+                job_data["type"] = type_match.group(1).strip()
+                
+            # Extract salary
+            salary_match = re.search(r'"salary"\s*:\s*"([^"]+)"', item)
+            if salary_match:
+                job_data["salary"] = salary_match.group(1).strip()
+                
+            # Extract skills
+            skills_match = re.search(r'"skills"\s*:\s*\[(.*?)\]', item, re.DOTALL)
+            if skills_match:
+                skills_str = skills_match.group(1)
+                skills = re.findall(r'"([^"]+)"', skills_str)
+                if skills:
+                    job_data["skills"] = skills
+            
+            # If the item is just a skill name
+            if item.strip().startswith('"') and item.strip().endswith('"'):
+                skill = item.strip().strip('"')
+                if "skills" not in job_data:
+                    job_data["skills"] = []
+                if skill not in job_data["skills"]:
+                    job_data["skills"].append(skill)
+        
+        # If no title was found but we have skills, create a job title based on skills
+        if "title" not in job_data and "skills" in job_data and job_data["skills"]:
+            primary_skill = job_data["skills"][0]
+            job_data["title"] = f"{primary_skill} Developer"
+        
+        # Clean up the title
+        if "title" in job_data:
+            # Remove quotes, brackets, and other artifacts
+            title = job_data["title"]
+            title = re.sub(r'["\[\]{}]', '', title)
+            title = re.sub(r'^[-*•]\s*', '', title)  # Remove list markers
+            
+            # If title contains JSON properties, extract just the title
+            if '"title":' in title:
+                title_match = re.search(r'"title"\s*:\s*"([^"]+)"', title)
+                if title_match:
+                    title = title_match.group(1)
+            
+            # Clean up any remaining artifacts
+            title = title.strip()
+            if title.lower() in ["location", "type", "salary", "skills"]:
+                title = "Software Developer"  # Default title for property names
+                
+            job_data["title"] = title
+        
+        # Create a structured job position with defaults for missing fields
+        formatted_position = {
+            "title": job_data.get("title", "Software Developer"),
+            "company": job_data.get("company", default_company),
+            "location": job_data.get("location", default_location),
+            "type": job_data.get("type", default_type),
+            "skills": job_data.get("skills", default_skills)
         }
-        formatted_positions.append(job_card)
-    return formatted_positions
+        
+        # Add salary only if present
+        if "salary" in job_data:
+            formatted_position["salary"] = job_data["salary"]
+        
+        # Only add if we have a meaningful title (not just a property name)
+        if formatted_position["title"] not in ["Position", "location", "type", "salary", "skills"]:
+            formatted_positions.append(formatted_position)
+    
+    # Deduplicate positions based on title
+    unique_positions = []
+    seen_titles = set()
+    
+    for pos in formatted_positions:
+        if pos["title"] not in seen_titles:
+            seen_titles.add(pos["title"])
+            unique_positions.append(pos)
+    
+    # If we ended up with no positions, create a default one
+    if not unique_positions:
+        return [{
+            "title": "Software Developer",
+            "company": default_company,
+            "location": default_location,
+            "type": default_type,
+            "skills": default_skills
+        }]
+    
+    return unique_positions
 
 
 async def query_agent(user_query: str):

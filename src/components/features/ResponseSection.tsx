@@ -62,6 +62,16 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
     }).filter(Boolean);
   };
 
+  // Helper function to clean job title
+  const cleanJobTitle = (title: string) => {
+    // Remove JSON formatting artifacts
+    return title
+      .replace(/^"title":\s*"|",$/, '') // Remove "title": " and ",
+      .replace(/^"/, '')  // Remove leading quote
+      .replace(/"$/, '')  // Remove trailing quote
+      .replace(/\\"/g, '"'); // Replace escaped quotes
+  };
+
   // Helper function to determine if we have job positions to display
   const hasJobPositions = () => {
     return response.agent_response?.job_positions && 
@@ -97,12 +107,14 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
         
         {hasJobPositions() && (
           <div className="grid grid-cols-1 gap-6">
-            {response.agent_response.job_positions.map((job, index) => (
+            {response.agent_response.job_positions
+              .filter(job => !job.title.includes('Based on your resume')) // Filter out the introduction message
+              .map((job, index) => (
               <div key={index} className="bg-white rounded-lg border p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">{job.title || 'Unknown Position'}</h3>
-                    <p className="text-sm text-gray-600">{job.company || 'Company Not Specified'}</p>
+                    <h3 className="text-lg font-medium text-gray-900">{cleanJobTitle(job.title)}</h3>
+                    <p className="text-sm text-gray-600">{job.company}</p>
                   </div>
                 </div>
 
@@ -132,7 +144,7 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
                 )}
                 
                 <div className="flex justify-between items-center">
-                  <Button className="bg-blue-600 hover:bg-blue-700">Apply Now</Button>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">Apply Now</Button>
                 </div>
               </div>
             ))}
