@@ -6,11 +6,11 @@ const fs = require('fs');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3004;
 
 // Enable CORS
 app.use(cors());
-
+       
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
