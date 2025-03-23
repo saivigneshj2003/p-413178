@@ -1,13 +1,14 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock } from 'react-feather';
+import { MapPin, Clock, DollarSign } from 'react-feather';
 
 interface JobPosition {
   title: string;
   company: string;
   location: string;
   type: string;
-  skills: string[];
+  salary?: string;
+  skills: string | string[];
 }
 
 interface AgentResponse {
@@ -75,6 +76,47 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
       .replace(/\\"/g, '"'); // Replace escaped quotes
   };
 
+  // Helper function to clean text fields
+  const cleanField = (field: string): string => {
+    if (!field) return '';
+    
+    // Remove metadata formatting
+    return field
+      .replace(/^(location|type|salary)\":\s*\"/, '')
+      .replace(/\\"/g, '')
+      .replace(/\"$/, '')
+      .trim();
+  };
+
+  // Helper function to clean skills data
+  const cleanSkills = (skills: string | string[]): string[] => {
+    if (!skills) return [];
+    
+    // If skills is already an array
+    if (Array.isArray(skills)) {
+      // Filter out metadata-like entries
+      return skills
+        .filter(skill => 
+          !skill.includes('location\":') && 
+          !skill.includes('type\":') && 
+          !skill.includes('salary\":') && 
+          !skill.includes('skills\":')
+        )
+        .map(skill => skill.replace(/\\"/g, '').replace(/"/g, '').trim());
+    }
+    
+    // If skills is a string
+    return skills
+      .split(',')
+      .map(skill => skill.trim())
+      .filter(skill => 
+        !skill.includes('location\":') && 
+        !skill.includes('type\":') && 
+        !skill.includes('salary\":') && 
+        !skill.includes('skills\":')
+      );
+  };
+
   // Helper function to determine if we have job positions to display
   const hasJobPositions = () => {
     // Check both possible locations for job positions
@@ -128,28 +170,37 @@ export const ResponseSection: React.FC<ResponseSectionProps> = ({ response }) =>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 mb-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
                   {job.location && (
                     <div className="flex items-center gap-1 text-sm text-gray-600">
                       <MapPin size={16} />
-                      <span>{job.location}</span>
+                      <span>{cleanField(job.location)}</span>
                     </div>
                   )}
                   {job.type && (
                     <div className="flex items-center gap-1 text-sm text-gray-600">
                       <Clock size={16} />
-                      <span>{job.type}</span>
+                      <span>{cleanField(job.type)}</span>
+                    </div>
+                  )}
+                  {job.salary && (
+                    <div className="flex items-center gap-1 text-sm text-gray-600">
+                      <DollarSign size={16} />
+                      <span>{cleanField(job.salary)}</span>
                     </div>
                   )}
                 </div>
 
-                {job.skills && job.skills.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {job.skills.map((skill, idx) => (
-                      <span key={idx} className="px-3 py-1 text-xs rounded-full bg-blue-50 text-blue-700">
-                        {skill}
-                      </span>
-                    ))}
+                {job.skills && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Required Skills</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {cleanSkills(job.skills).map((skill, idx) => (
+                        <span key={idx} className="px-3 py-1 text-xs rounded-full bg-blue-50 text-blue-700">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
                 

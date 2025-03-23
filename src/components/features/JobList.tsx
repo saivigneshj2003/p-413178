@@ -188,7 +188,7 @@ export const JobList = () => {
         "Agent is thinking even more",
         "Agent is thinking even even more",
         "It is trying to find best possible match",
-        "It getting closer",
+        "It is getting closer",
         "It found the best possible match"
       ];
 
@@ -253,13 +253,6 @@ export const JobList = () => {
         </div>
       )}
       
-      <footer className="mt-8 text-center text-sm text-gray-500">
-        2025 JobVoice. All rights reserved.
-        <div className="flex justify-center mt-2 gap-4">
-          <button className="text-gray-500 hover:text-gray-700">Support</button>
-          <button className="text-gray-500 hover:text-gray-700">Settings</button>
-        </div>
-      </footer>
     </div>
   );
 };
