@@ -6,7 +6,7 @@ import json
 from azure.identity.aio import DefaultAzureCredential
 from semantic_kernel.agents.azure_ai import AzureAIAgent, AzureAIAgentSettings
 from dotenv import load_dotenv
-
+from typing import List, Dict
 
 load_dotenv()
 
@@ -94,6 +94,40 @@ def recognize_from_microphone_audio():
         return None
 
 
+def format_job_positions(positions: List[str]) -> List[Dict]:
+    """
+    Formats job positions into card-like structures.
+    """
+    formatted_positions = []
+    for position in positions:
+        # Remove any list markers and clean up the position string
+        position = position.strip().replace('- ', '').replace('* ', '')
+        
+        # Determine skills based on position keywords
+        skills = []
+        if any(keyword in position.lower() for keyword in ['azure', 'cloud']):
+            skills.extend(['Azure', 'Cloud Architecture', 'Infrastructure'])
+        if 'devops' in position.lower():
+            skills.extend(['DevOps', 'CI/CD', 'Automation'])
+        if 'architect' in position.lower():
+            skills.extend(['Solution Design', 'Enterprise Architecture'])
+        if 'presales' in position.lower():
+            skills.extend(['Technical Sales', 'Client Communication'])
+            
+        # Remove duplicates and ensure at least some default skills
+        skills = list(set(skills)) or ['Technical Skills', 'Problem Solving']
+        
+        job_card = {
+            "title": position,
+            "company": "Indegene",
+            "location": "Remote (Global)",
+            "type": "Full-time",
+            "skills": skills
+        }
+        formatted_positions.append(job_card)
+    return formatted_positions
+
+
 async def query_agent(user_query: str):
     """
     Interacts with the Azure AI agent using the recognized text as input.
@@ -125,21 +159,98 @@ async def query_agent(user_query: str):
             # Get the agent's response
             response = await agent.get_response(thread_id=thread.id)
             
+            # Extract job positions from the response
+            try:
+                # Convert response to string and clean it up
+                response_str = str(response).strip()
+                
+                # Check if the response looks like a list
+                if response_str.startswith('[') and response_str.endswith(']'):
+                    try:
+                        # Try to parse as a comma-separated list
+                        # Replace any missing commas between items
+                        cleaned_str = response_str.replace(', ', ',').replace(' ,', ',')
+                        # Add commas between items if missing
+                        for job_title in ['Architect', 'Engineer', 'Developer', 'Consultant', 'Specialist']:
+                            cleaned_str = cleaned_str.replace(f'] {job_title}', f'], {job_title}')
+                            cleaned_str = cleaned_str.replace(f'{job_title} [', f'{job_title}, [')
+                        
+                        # Manual parsing as a fallback
+                        if '[' in cleaned_str and ']' in cleaned_str:
+                            # Remove the brackets
+                            content = cleaned_str[1:-1]
+                            # Split by comma
+                            positions = [pos.strip() for pos in content.split(',') if pos.strip()]
+                            
+                            if positions:
+                                formatted_response = {
+                                    "status": "success",
+                                    "job_positions": format_job_positions(positions)
+                                }
+                            else:
+                                raise ValueError("No positions found in list")
+                        else:
+                            raise ValueError("Invalid list format")
+                    except Exception as parsing_error:
+                        print(f"List parsing error: {str(parsing_error)}")
+                        # Fallback to treating as plain text
+                        formatted_response = {
+                            "status": "success",
+                            "response": response_str
+                        }
+                else:
+                    # Split the response by newlines and look for list items
+                    lines = response_str.split('\n')
+                    positions = []
+                    
+                    for line in lines:
+                        line = line.strip()
+                        if line and (line.startswith(('-', '*', '•')) or 
+                                   any(job_type in line.lower() for job_type in ['architect', 'engineer', 'developer', 'consultant'])):
+                            # Clean up the line
+                            clean_line = line.lstrip('-*•').strip()
+                            if clean_line:
+                                positions.append(clean_line)
+                    
+                    if positions:
+                        formatted_response = {
+                            "status": "success",
+                            "job_positions": format_job_positions(positions)
+                        }
+                    else:
+                        # If no positions found, just return the response as is
+                        formatted_response = {
+                            "status": "success",
+                            "response": response_str
+                        }
+            except Exception as e:
+                print(f"Error formatting response: {str(e)}")
+                # Fallback to plain text response
+                formatted_response = {
+                    "status": "success",
+                    "response": str(response)
+                }
+            
             result["steps"].append({
                 "step": "agent_query",
                 "status": "success",
-                "response": str(response)
+                "response": formatted_response
             })
-            result["agent_response"] = str(response)
-            return response
+            result["agent_response"] = formatted_response
+            return formatted_response
 
     except Exception as e:
+        error_response = {
+            "status": "error",
+            "error": str(e)
+        }
         result["steps"].append({
             "step": "agent_query",
             "status": "error",
             "error": str(e)
         })
-        return None
+        result["agent_response"] = error_response
+        return error_response
 
 
 async def main():
